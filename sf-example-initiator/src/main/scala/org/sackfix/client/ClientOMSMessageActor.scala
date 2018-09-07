@@ -1,10 +1,10 @@
 package org.sackfix.client
 
-import java.time.LocalDateTime
+import java.time.{LocalDateTime, ZoneId}
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import org.sackfix.boostrap._
-import org.sackfix.common.message.SfMessage
+import org.sackfix.common.message.{SfFixUtcTime, SfMessage}
 import org.sackfix.field._
 import org.sackfix.fix44._
 import org.sackfix.session.SfSessionId
@@ -61,7 +61,7 @@ class ClientOMSMessageActor extends Actor with ActorLogging {
     * @param fixSessionActor This will be a SfSessionActor, but sadly Actor ref's are not typed
     *                        as yet
     */
-  def onExecutionReport(fixSessionActor: ActorRef, o: ExecutionReportMessage) = {
+  def onExecutionReport(fixSessionActor: ActorRef, o: ExecutionReportMessage): Unit = {
     val symbol = o.instrumentComponent.symbolField
     val side = o.sideField
 
@@ -76,7 +76,7 @@ class ClientOMSMessageActor extends Actor with ActorLogging {
     sendANos(fixSessionActor)
   }
 
-  def sendANos(fixSessionActor: ActorRef) = {
+  def sendANos(fixSessionActor: ActorRef): Unit = {
     if (isOpen) {
       // validation etc..but send back the ack
       // NOTE, AKKA is Asynchronous.  You have ZERO idea if this send worked, or coincided with socket close down and so on.
@@ -88,7 +88,7 @@ class ClientOMSMessageActor extends Actor with ActorLogging {
         sideField = SideField({
           if (orderId % 2 == 0) SideField.Buy else SideField.Sell
         }),
-        transactTimeField = TransactTimeField(LocalDateTime.now),
+        transactTimeField = TransactTimeField(SfFixUtcTime.now),
         orderQtyDataComponent = OrderQtyDataComponent(orderQtyField = Some(OrderQtyField(100))),
         ordTypeField = OrdTypeField(OrdTypeField.Market)), correlationId)
     }

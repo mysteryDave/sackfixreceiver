@@ -1,12 +1,10 @@
 package org.sackfix.client
 
 import akka.actor.SupervisorStrategy.{Restart, Stop}
-import akka.actor.{Actor, ActorContext, ActorInitializationException, ActorKilledException, ActorLogging, ActorRef, DeathPactException, OneForOneStrategy, Props}
+import akka.actor.{Actor, ActorInitializationException, ActorKilledException, ActorLogging, DeathPactException, OneForOneStrategy, Props}
 import org.sackfix.boostrap._
 import org.sackfix.boostrap.initiator.{SfInitiatorBooter, SfInitiatorSettings}
 import org.sackfix.client.SfClientGuardianActor.GuardianInitialiseInMsg
-import org.sackfix.fix44.NewOrderSingleMessage
-import org.sackfix.session.{SfMessageStore, SfSessionId}
 import org.sackfix.session.filebasedstore.SfFileMessageStore
 import com.typesafe.config.ConfigException
 
@@ -26,12 +24,12 @@ class SfClientGuardianActor extends Actor with ActorLogging {
   var booter: Option[SfInitiatorBooter] = None
 
   // Included just in case you want to know about lifecycle
-  override def preStart = {
+  override def preStart: Unit = {
     super.preStart
     log.info("Guardian prestart")
   }
 
-  override def postStop = {
+  override def postStop: Unit = {
     super.postStop
     log.info("Guardian postStop")
   }
@@ -50,7 +48,7 @@ class SfClientGuardianActor extends Actor with ActorLogging {
     case SystemErrorNeedsDevOpsMsg(msg: String) => systemCloseDown(msg)
   }
 
-  def initialiseTheClient: Unit = {
+  def initialiseTheClient(): Unit = {
     try {
       // Load the config into an extension object, so can get at values as fields.
       val settings = SfInitiatorSettings(context.system)
@@ -58,7 +56,7 @@ class SfClientGuardianActor extends Actor with ActorLogging {
       // ***** THE IMPORTANT BIT!  Put your logic in the MessageActor *****
       // After session valdation etc all business messages are sent to this actor
       // ******************************************************************
-      val businessCommsActor = context.actorOf(ClientOMSMessageActor.props, name="OMSClientMsgHandler")
+      val businessCommsActor = context.actorOf(ClientOMSMessageActor.props(), name="OMSClientMsgHandler")
       val businessComms = new BusinessCommsHandler{
         override def handleFix(msg: SfBusinessFixInfo): Unit = {
           businessCommsActor ! msg
