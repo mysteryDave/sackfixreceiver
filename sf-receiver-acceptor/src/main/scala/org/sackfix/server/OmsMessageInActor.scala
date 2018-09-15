@@ -1,15 +1,20 @@
 package org.sackfix.server
 
-import java.time.LocalDateTime
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import java.util.Properties
+import java.util.concurrent.TimeUnit
+
 import org.sackfix.boostrap._
 import org.sackfix.common.message.SfMessage
-import org.sackfix.field._
-import org.sackfix.fix44._
+import org.apache.kafka.streams.kstream.Materialized
+import org.apache.kafka.streams.scala.ImplicitConversions._
+import org.apache.kafka.streams.scala._
+import org.apache.kafka.streams.scala.kstream._
+import org.apache.kafka.streams.{KafkaStreams, StreamsConfig}
 import org.sackfix.session.SfSessionId
 
 import scala.collection.mutable
+import scala.io.Source
 
 /** You must implement an actor for business messages.
   * You should inject it into the SfInitiatorActor or SfAcceptorActor depending on
@@ -26,6 +31,11 @@ object OMSMessageInActor {
 class OMSMessageInActor extends Actor with ActorLogging {
   private val sentMessages = mutable.HashMap.empty[String, Long]
   private var isOpen = false
+  private val fixTagFilterFile = "example.fix.log"
+  private val removeFixTags: Set[Int] = Source.fromFile(fixTagFilterFile).getLines().map(line=>line.split(",")).flatMap(line=>line.toStream).map(cell => try {
+    Some((cell.trim).toInt)
+  } catch { case e: Exception => None }
+).filter(split => split==Some).map(tag=>tag.get).toSet
 
   override def receive: Receive = {
     case FixSessionOpen(sessionId: SfSessionId, sfSessionActor: ActorRef) =>
@@ -34,52 +44,16 @@ class OMSMessageInActor extends Actor with ActorLogging {
     case FixSessionClosed(sessionId: SfSessionId) =>
       log.info(s"Session ${sessionId.id} is CLOSED for business")
       isOpen = false
-    case BusinessFixMessage(sessionId: SfSessionId, sfSessionActor: ActorRef, message: SfMessage) =>
-      message.body match {
-        case m: NewOrderSingleMessage => onNewOrderSingle(sfSessionActor, m)
-        case m@_ => log.warning(s"[${sessionId.id}] Received a message it cannot handle, MsgType=${message.body.msgType}")
-      }
+    case BusinessFixMessage(sessionId: SfSessionId, sfSessionActor: ActorRef, message: SfMessage) => {} //dump into kafka
+    case BusinessRejectMessage(sessionId: SfSessionId, sfSessionActor: ActorRef, message: SfMessage) => {} //dump into kafka
     case BusinessFixMsgOutAck(sessionId: SfSessionId, sfSessionActor: ActorRef, correlationId:String) =>
       // You should have a HashMap of stuff you send, and when you get this remove from your set.
       // Read the Akka IO TCP guide for ACK'ed messages and you will see
       sentMessages.get(correlationId).foreach(tstamp =>
         log.debug(s"$correlationId send duration = ${(System.nanoTime()-tstamp)/1000} Micros"))
-    case BusinessRejectMessage(sessionId: SfSessionId, sfSessionActor: ActorRef, message: SfMessage) =>
-      log.warning(s"Session ${sessionId.id} has rejected the message ${message.toString()}")
   }
 
-  /**
-    * @param fixSessionActor This will be a SfSessionActor, but sadly Actor ref's are not typed
-    *                        as yet
-    */
-  def onNewOrderSingle(fixSessionActor: ActorRef, o: NewOrderSingleMessage) = {
-    val symbol = o.instrumentComponent.symbolField
-    val side = o.sideField
-    val quantity = o.orderQtyDataComponent.orderQtyField.getOrElse(OrderQtyField(0)).value
-
-    //    println(
-    //      s"""NewOrderSingle for
-    //      Instrument: ${symbol}
-    //      Side:       ${side}
-    //      Quantity:   ${quantity}
-    //      Price:      ${o.priceField.foreach(_.value)}
-    //      clOrdId:    ${o.clOrdIDField.value}
-    //      """)
-
-    // validation etc..but send back the ack
-    // NOTE, AKKA is Asynchronous.  You have ZERO idea if this send worked, or coincided with socket close down and so on.
-    if (isOpen) {
-      val correlationId = "ExecutionReport" + LocalDateTime.now.toString
-      sentMessages(correlationId) = System.nanoTime()
-      fixSessionActor ! BusinessFixMsgOut(ExecutionReportMessage(orderIDField = OrderIDField("1"),
-        execIDField = ExecIDField("exec1"),
-        execTypeField = ExecTypeField(ExecTypeField.New),
-        ordStatusField = OrdStatusField(OrdStatusField.New),
-        instrumentComponent = InstrumentComponent(symbolField = symbol),
-        sideField = side,
-        leavesQtyField = LeavesQtyField(quantity),
-        cumQtyField = CumQtyField(0),
-        avgPxField = AvgPxField(0)), correlationId)
-    }
+  def sendToKafka(message: SfMessage): Unit = {
+    message.fixExtensions.filter(fixTuple => !removeFixTags.contains(fixTuple._1))
   }
 }
