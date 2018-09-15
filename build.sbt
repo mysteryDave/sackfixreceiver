@@ -19,16 +19,16 @@ lazy val commonSettings = Seq(
 )
 
 
-lazy val sfexampleacceptor = (project in file("./sf-example-acceptor")).
+lazy val sfreceiveracceptor = (project in file("./sf-receiver-acceptor")).
   settings(commonSettings: _*).
   settings(
-    name := "sf-example-acceptor"
+    name := "sf-receiver-acceptor"
   )
 
-lazy val sfexampleinitiator = (project in file("./sf-example-initiator")).
+lazy val sfreceiverinitiator = (project in file("./sf-receiver-initiator")).
   settings(commonSettings: _*).
   settings(
-    name := "sf-example-initiator"
+    name := "sf-receiver-initiator"
   )
 
-lazy val sackfixexamples = (project in file(".")).aggregate(sfexampleacceptor, sfexampleinitiator)
+lazy val sackfixreceiver = (project in file(".")).aggregate(sfreceiveracceptor, sfreceiverinitiator)
