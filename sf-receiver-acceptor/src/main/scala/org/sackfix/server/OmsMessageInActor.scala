@@ -28,7 +28,6 @@ object OMSMessageInActor {
 
 class OMSMessageInActor extends Actor with ActorLogging {
   private val SOH_CHAR: Char = 1.toChar
-  private val SOH_BYTE: Byte = 1.toByte
   private val fixTagBlackListProperty: String = "RemoveFixTags"
   private val sentMessages = mutable.HashMap.empty[String, Long]
   private var isOpen = false
