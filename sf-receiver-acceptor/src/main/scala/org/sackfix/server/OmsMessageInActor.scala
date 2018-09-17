@@ -36,7 +36,7 @@ class OMSMessageInActor extends Actor with ActorLogging {
     try { // Load the config for Kafka from application.conf.
       val kafkaSettings = context.system.settings.config.getConfig("kafka")
       props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaSettings.getString("KafkaHost"))
-      props.put(ProducerConfig.CLIENT_ID_CONFIG, "FixSupervisor")
+      props.put(ProducerConfig.CLIENT_ID_CONFIG, "TradeReceiver")
       props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, classOf[StringSerializer].getName)
       props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, classOf[StringSerializer].getName)
     }
@@ -72,7 +72,7 @@ class OMSMessageInActor extends Actor with ActorLogging {
       })
       .filter(fixTuple => !removeFixTags.contains(fixTuple._1)).map(fixTup => fixTup._1.toString() + "=" + fixTup._2).toArray[String].mkString(SOH_CHAR.toString)
     val producer: KafkaProducer[String, String] = new KafkaProducer(kafkaConfig)
-    val record: ProducerRecord[String, String] = new ProducerRecord("FixMessages", reducedMessage)
+    val record: ProducerRecord[String, String] = new ProducerRecord("FixEventsIn", reducedMessage)
     producer.send(record, logResult)
   }
 
