@@ -14,19 +14,14 @@ import org.sackfix.common.message.SfMessage
 
 import scala.collection.mutable
 
-/** You must implement an actor for business messages.
-  * You should inject it into the SfInitiatorActor or SfAcceptorActor depending on
-  * if you are a server or a client
-  *
-  * Backpressure is not implemented in SackFix for IO Buffer filling up on read or write.  If you want to
-  * add it please feel free.  Note that you should probably NOT send out orders if you have ACKs outstanding.
-  * This will pretty much avoid all back pressure issues. ie if sendMessages.size>1 wait
+/** This actor takes incoming messages and passes them into a Kafka stream without responding.
+  * It is intended only for forwarding FIX drop copy information to other systems via Kafka.
   */
-object OMSMessageInActor {
-  def props(): Props = Props(new OMSMessageInActor)
+object FixMessageInActor {
+  def props(): Props = Props(new FixMessageInActor)
 }
 
-class OMSMessageInActor extends Actor with ActorLogging {
+class FixMessageInActor extends Actor with ActorLogging {
   private val SOH_CHAR: Char = 1.toChar
   private val fixTagBlackListProperty: String = "RemoveFixTags"
   private val sentMessages = mutable.HashMap.empty[String, Long]
